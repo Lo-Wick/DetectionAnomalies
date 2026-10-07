@@ -4,7 +4,7 @@ import Sidebar from './Sidebar';
 import Toast from './Toast';
 import { authService } from '../services/authService';
 
-function PageLayout({ title, children, toast, setToast }) {
+function PageLayout({ title, toast, setToast, children }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const navigate = useNavigate();
   const user = authService.getCurrentUser();

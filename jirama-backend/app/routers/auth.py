@@ -37,3 +37,31 @@ def login(credentials: LoginRequest, db: Session = Depends(get_db)):
         role=user.role,
         nom_utilisateur=user.nom_utilisateur,
     )
+
+
+
+from datetime import datetime
+from app.models import Utilisateur
+from app.utils import generer_token_qr
+
+
+@router.get("/auto-login")
+def auto_login(token: str, db: Session = Depends(get_db)):
+    """Connexion automatique via QR code."""
+    user = db.query(Utilisateur).filter_by(token_qr=token).first()
+
+    if not user:
+        raise HTTPException(401, "QR code invalide")
+
+    if user.token_expire_le and user.token_expire_le < datetime.utcnow():
+        raise HTTPException(401, "QR code expiré")
+
+    if not user.actif:
+        raise HTTPException(403, "Compte désactivé")
+
+    return {
+        "access_token": f"token_{user.id_utilisateur}",
+        "token_type": "bearer",
+        "role": user.role,
+        "nom_utilisateur": user.nom_utilisateur,
+    }

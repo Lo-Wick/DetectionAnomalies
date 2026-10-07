@@ -1,7 +1,8 @@
-import Placeholder from './Placeholder';
+import CRUDPage from '../components/CRUDPage';
+import { collecteursConfig } from '../configs/crudConfigs';
 
-function Sites() {
-  return <Placeholder title="Gestion des sites" />;
+function Collecteurs() {
+  return <CRUDPage title="Gestion des collecteurs" config={collecteursConfig} />;
 }
 
-export default Sites;
+export default Collecteurs;

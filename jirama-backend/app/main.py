@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base
 from app import models
 from app.routers import sites, auth, tournees, carnets
+from app.routers import sites, auth, tournees, carnets, referentiels
+from app.routers import sites, auth, tournees, carnets, referentiels, utilisateurs
 
 Base.metadata.create_all(bind=engine)
 
@@ -20,6 +22,8 @@ app.include_router(auth.router)
 app.include_router(sites.router)
 app.include_router(tournees.router)
 app.include_router(carnets.router)
+app.include_router(referentiels.router)
+app.include_router(utilisateurs.router)
 
 @app.get("/")
 def root():

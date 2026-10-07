@@ -1,7 +1,8 @@
-import Placeholder from './Placeholder';
+import CRUDPage from '../components/CRUDPage';
+import { clientsConfig } from '../configs/crudConfigs';
 
-function Sites() {
-  return <Placeholder title="Gestion des sites" />;
+function Clients() {
+  return <CRUDPage title="Gestion des clients" config={clientsConfig} />;
 }
 
-export default Sites;
+export default Clients;

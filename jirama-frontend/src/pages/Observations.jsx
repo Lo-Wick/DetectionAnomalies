@@ -1,7 +1,8 @@
-import Placeholder from './Placeholder';
+import CRUDPage from '../components/CRUDPage';
+import { observationsConfig } from '../configs/crudConfigs';
 
-function Sites() {
-  return <Placeholder title="Gestion des sites" />;
+function Observations() {
+  return <CRUDPage title="Gestion des observations" config={observationsConfig} />;
 }
 
-export default Sites;
+export default Observations;

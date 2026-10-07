@@ -14,6 +14,7 @@ function Sidebar({ isOpen, onToggle }) {
     { path: '/observations', label: 'Observations', icon: '' },
     { path: '/profils', label: 'Profils clients', icon: '' },
     { path: '/utilisateurs', label: 'Utilisateurs', icon: '' },
+    { path: '/types-lecture', label: 'Types de lecture', icon: '📖' },
   ];
 
   return (

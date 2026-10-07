@@ -13,6 +13,8 @@ import Collecteurs from './pages/Collecteurs';
 import Observations from './pages/Observations';
 import Profils from './pages/Profils';
 import Utilisateurs from './pages/Utilisateurs';
+import TypesLecture from './pages/TypesLecture';
+import AutoLogin from './pages/AutoLogin';
 
 function App() {
   return (
@@ -32,6 +34,8 @@ function App() {
         <Route path="/observations" element={<ProtectedRoute><Observations /></ProtectedRoute>} />
         <Route path="/profils" element={<ProtectedRoute><Profils /></ProtectedRoute>} />
         <Route path="/utilisateurs" element={<ProtectedRoute><Utilisateurs /></ProtectedRoute>} />
+        <Route path="/types-lecture" element={<ProtectedRoute><TypesLecture /></ProtectedRoute>} />
+        <Route path="/auto-login" element={<AutoLogin />} />
 
         <Route path="/" element={<Navigate to="/login" replace />} />
       </Routes>

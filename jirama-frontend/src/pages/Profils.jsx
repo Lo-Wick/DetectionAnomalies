@@ -1,7 +1,8 @@
-import Placeholder from './Placeholder';
+import CRUDPage from '../components/CRUDPage';
+import { profilsConfig } from '../configs/crudConfigs';
 
-function Sites() {
-  return <Placeholder title="Gestion des sites" />;
+function Profils() {
+  return <CRUDPage title="Gestion des profils clients" config={profilsConfig} />;
 }
 
-export default Sites;
+export default Profils;

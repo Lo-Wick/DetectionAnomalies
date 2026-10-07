@@ -80,3 +80,34 @@ class CarnetResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ===== UTILISATEUR =====
+class UtilisateurCreate(BaseModel):
+    login: str
+    nom_utilisateur: str
+    role: str = "USER"
+
+
+class UtilisateurResponse(BaseModel):
+    id_utilisateur: int
+    login: str
+    nom_utilisateur: str
+    role: str
+    actif: bool
+    date_creation: datetime
+    token_qr: str | None = None
+    token_expire_le: datetime | None = None
+
+    class Config:
+        from_attributes = True
+
+
+class UtilisateurAvecMotDePasse(BaseModel):
+    utilisateur: UtilisateurResponse
+    mot_de_passe_clair: str
+    qr_code_base64: str
+
+
+class ChangerStatutRequest(BaseModel):
+    actif: bool
