@@ -2,18 +2,18 @@ import { NavLink } from 'react-router-dom';
 
 function Sidebar({ isOpen, onToggle }) {
   const menuItems = [
-    { path: '/dashboard', label: 'Tableau de bord', icon: '📊' },
-    { path: '/imports', label: 'Imports', icon: '📥' },
-    { path: '/releves', label: 'Relevés', icon: '📋' },
-    { path: '/anomalies', label: 'Anomalies', icon: '⚠️' },
-    { path: '/sites', label: 'Sites', icon: '🏢' },
-    { path: '/tournees', label: 'Tournées', icon: '🚗' },
-    { path: '/carnets', label: 'Carnets', icon: '📓' },
-    { path: '/clients', label: 'Clients', icon: '👤' },
-    { path: '/collecteurs', label: 'Collecteurs', icon: '👷' },
-    { path: '/observations', label: 'Observations', icon: '📝' },
-    { path: '/profils', label: 'Profils clients', icon: '🏷️' },
-    { path: '/utilisateurs', label: 'Utilisateurs', icon: '👥' },
+    { path: '/dashboard', label: 'Tableau de bord', icon: '' },
+    { path: '/imports', label: 'Imports', icon: '' },
+    { path: '/releves', label: 'Relevés', icon: '' },
+    { path: '/anomalies', label: 'Anomalies', icon: '' },
+    { path: '/sites', label: 'Sites', icon: '' },
+    { path: '/tournees', label: 'Tournées', icon: '' },
+    { path: '/carnets', label: 'Carnets', icon: '' },
+    { path: '/clients', label: 'Clients', icon: '' },
+    { path: '/collecteurs', label: 'Collecteurs', icon: '' },
+    { path: '/observations', label: 'Observations', icon: '' },
+    { path: '/profils', label: 'Profils clients', icon: '' },
+    { path: '/utilisateurs', label: 'Utilisateurs', icon: '' },
   ];
 
   return (

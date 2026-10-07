@@ -1,19 +1,24 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
+import { authService } from '../services/authService';
 
 function Dashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const navigate = useNavigate();
+  const user = authService.getCurrentUser();
 
-  const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
+  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+
+  const handleLogout = () => {
+    authService.logout();
+    navigate('/login');
   };
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Sidebar à droite */}
       <Sidebar isOpen={isSidebarOpen} onToggle={toggleSidebar} />
 
-      {/* Contenu principal */}
       <div
         className={`transition-all duration-300 ease-in-out ${
           isSidebarOpen ? 'mr-64' : 'mr-0'
@@ -24,12 +29,20 @@ function Dashboard() {
           <h1 className="text-2xl font-bold text-gray-800">
             Tableau de bord JIRAMA
           </h1>
-          <button
-            onClick={toggleSidebar}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition text-sm"
-          >
-            {isSidebarOpen ? '▶ Masquer le menu' : '◀ Afficher le menu'}
-          </button>
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <p className="text-sm font-semibold text-gray-800">
+                {user?.nom_utilisateur || 'Utilisateur'}
+              </p>
+              <p className="text-xs text-gray-500">{user?.role || 'USER'}</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition text-sm"
+            >
+              Déconnexion
+            </button>
+          </div>
         </header>
 
         {/* Cartes statistiques */}

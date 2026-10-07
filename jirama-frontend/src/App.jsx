@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Imports from './pages/Imports';
@@ -18,18 +19,20 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/imports" element={<Imports />} />
-        <Route path="/releves" element={<Releves />} />
-        <Route path="/anomalies" element={<Anomalies />} />
-        <Route path="/sites" element={<Sites />} />
-        <Route path="/tournees" element={<Tournees />} />
-        <Route path="/carnets" element={<Carnets />} />
-        <Route path="/clients" element={<Clients />} />
-        <Route path="/collecteurs" element={<Collecteurs />} />
-        <Route path="/observations" element={<Observations />} />
-        <Route path="/profils" element={<Profils />} />
-        <Route path="/utilisateurs" element={<Utilisateurs />} />
+
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/imports" element={<ProtectedRoute><Imports /></ProtectedRoute>} />
+        <Route path="/releves" element={<ProtectedRoute><Releves /></ProtectedRoute>} />
+        <Route path="/anomalies" element={<ProtectedRoute><Anomalies /></ProtectedRoute>} />
+        <Route path="/sites" element={<ProtectedRoute><Sites /></ProtectedRoute>} />
+        <Route path="/tournees" element={<ProtectedRoute><Tournees /></ProtectedRoute>} />
+        <Route path="/carnets" element={<ProtectedRoute><Carnets /></ProtectedRoute>} />
+        <Route path="/clients" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
+        <Route path="/collecteurs" element={<ProtectedRoute><Collecteurs /></ProtectedRoute>} />
+        <Route path="/observations" element={<ProtectedRoute><Observations /></ProtectedRoute>} />
+        <Route path="/profils" element={<ProtectedRoute><Profils /></ProtectedRoute>} />
+        <Route path="/utilisateurs" element={<ProtectedRoute><Utilisateurs /></ProtectedRoute>} />
+
         <Route path="/" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
