@@ -3,8 +3,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Imports from './pages/Imports';
+import ImportNouveau from './pages/ImportNouveau';
 import Releves from './pages/Releves';
-import Anomalies from './pages/Anomalies';
 import Sites from './pages/Sites';
 import Tournees from './pages/Tournees';
 import Carnets from './pages/Carnets';
@@ -21,11 +21,15 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/auto-login" element={<AutoLogin />} />
 
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/imports" element={<ProtectedRoute><Imports /></ProtectedRoute>} />
+        <Route path="/imports/nouveau" element={<ProtectedRoute><ImportNouveau /></ProtectedRoute>} />
         <Route path="/releves" element={<ProtectedRoute><Releves /></ProtectedRoute>} />
-        <Route path="/anomalies" element={<ProtectedRoute><Anomalies /></ProtectedRoute>} />
+        {/* Redirection transparente de l'ancienne page anomalies vers la liste des relevés filtrée sur les anomalies */}
+        <Route path="/anomalies" element={<Navigate to="/releves?statut=anomalies" replace />} />
+
         <Route path="/sites" element={<ProtectedRoute><Sites /></ProtectedRoute>} />
         <Route path="/tournees" element={<ProtectedRoute><Tournees /></ProtectedRoute>} />
         <Route path="/carnets" element={<ProtectedRoute><Carnets /></ProtectedRoute>} />
@@ -35,7 +39,6 @@ function App() {
         <Route path="/profils" element={<ProtectedRoute><Profils /></ProtectedRoute>} />
         <Route path="/utilisateurs" element={<ProtectedRoute><Utilisateurs /></ProtectedRoute>} />
         <Route path="/types-lecture" element={<ProtectedRoute><TypesLecture /></ProtectedRoute>} />
-        <Route path="/auto-login" element={<AutoLogin />} />
 
         <Route path="/" element={<Navigate to="/login" replace />} />
       </Routes>

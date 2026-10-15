@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import Client, Collecteur, Observation, ProfilClient, TypeLecture, Installation
+from app.models import Client, Collecteur, Observation, ProfilClient, TypeLecture, Installation, Carnet, Tournee, Site
+from sqlalchemy.orm import joinedload
 
 router = APIRouter(prefix="/api/referentiels", tags=["Référentiels"])
 
@@ -12,7 +13,26 @@ def serialiser_client(c):
 
 
 def serialiser_collecteur(c):
-    return {"id_collecteur": c.id_collecteur, "nom_collecteur": c.nom_collecteur}
+    carnets_data = []
+    for carnet in (c.carnets or []):
+        tournee = carnet.tournee
+        site = tournee.site if tournee else None
+        carnets_data.append({
+            "id_carnet": carnet.id_carnet,
+            "code_carnet": carnet.code_carnet,
+            "id_tournee": carnet.id_tournee,
+            "code_tournee": tournee.code_tournee if tournee else "",
+            "id_site": site.id_site if site else None,
+            "nom_site": site.nom_site if site else "",
+            "libelle": f"Tournée {tournee.code_tournee if tournee else '?'} — Carnet {carnet.code_carnet} ({site.nom_site if site else ''})"
+        })
+    return {
+        "id_collecteur": c.id_collecteur,
+        "nom_collecteur": c.nom_collecteur,
+        "carnets": carnets_data,
+        "nb_carnets": len(carnets_data),
+        "carnet_ids": [car["id_carnet"] for car in carnets_data],
+    }
 
 
 def serialiser_observation(o):
@@ -78,13 +98,60 @@ def supprimer_client(id: int, db: Session = Depends(get_db)):
 # ============ COLLECTEURS ============
 @router.get("/collecteurs")
 def lister_collecteurs(db: Session = Depends(get_db)):
-    return [serialiser_collecteur(c) for c in db.query(Collecteur).order_by(Collecteur.nom_collecteur).all()]
+    """Liste tous les collecteurs avec leurs tournées/carnets associés."""
+    collecteurs = (
+        db.query(Collecteur)
+        .options(joinedload(Collecteur.carnets).joinedload(Carnet.tournee).joinedload(Tournee.site))
+        .order_by(Collecteur.nom_collecteur)
+        .all()
+    )
+    return [serialiser_collecteur(c) for c in collecteurs]
+
+
+@router.get("/collecteurs/carnets-disponibles")
+def lister_carnets_disponibles(db: Session = Depends(get_db)):
+    """
+    Retourne l'ensemble des carnets (tournées/carnets) existants
+    pour permettre l'affectation à un collecteur.
+    """
+    carnets = (
+        db.query(Carnet)
+        .options(joinedload(Carnet.tournee).joinedload(Tournee.site), joinedload(Carnet.collecteur))
+        .all()
+    )
+    res = []
+    for c in carnets:
+        tournee = c.tournee
+        site = tournee.site if tournee else None
+        res.append({
+            "id_carnet": c.id_carnet,
+            "code_carnet": c.code_carnet,
+            "id_tournee": c.id_tournee,
+            "code_tournee": tournee.code_tournee if tournee else "",
+            "id_site": site.id_site if site else None,
+            "nom_site": site.nom_site if site else "",
+            "id_collecteur": c.id_collecteur,
+            "nom_collecteur": c.collecteur.nom_collecteur if c.collecteur else None,
+            "libelle": f"T.{tournee.code_tournee if tournee else '?'}-C.{c.code_carnet} ({site.nom_site if site else 'Site inconnu'})"
+        })
+    # Trier par site puis tournée puis carnet
+    res.sort(key=lambda x: (x["nom_site"], x["code_tournee"], x["code_carnet"]))
+    return res
 
 
 @router.post("/collecteurs", status_code=201)
 def creer_collecteur(data: dict, db: Session = Depends(get_db)):
+    """Crée un collecteur et lui affecte éventuellement des tournées/carnets."""
     nouveau = Collecteur(nom_collecteur=data["nom_collecteur"])
     db.add(nouveau)
+    db.flush()
+
+    carnet_ids = data.get("carnet_ids", [])
+    if carnet_ids:
+        db.query(Carnet).filter(Carnet.id_carnet.in_(carnet_ids)).update(
+            {"id_collecteur": nouveau.id_collecteur}, synchronize_session=False
+        )
+
     db.commit()
     db.refresh(nouveau)
     return serialiser_collecteur(nouveau)
@@ -92,10 +159,21 @@ def creer_collecteur(data: dict, db: Session = Depends(get_db)):
 
 @router.put("/collecteurs/{id}")
 def modifier_collecteur(id: int, data: dict, db: Session = Depends(get_db)):
+    """Modifie le nom du collecteur et ses affectations de tournées/carnets."""
     c = db.query(Collecteur).filter_by(id_collecteur=id).first()
     if not c:
         raise HTTPException(404, "Collecteur introuvable")
-    c.nom_collecteur = data["nom_collecteur"]
+    c.nom_collecteur = data.get("nom_collecteur", c.nom_collecteur)
+
+    if "carnet_ids" in data:
+        # Libérer les anciens carnets
+        db.query(Carnet).filter_by(id_collecteur=id).update({"id_collecteur": None}, synchronize_session=False)
+        # Assigner les nouveaux carnets
+        if data["carnet_ids"]:
+            db.query(Carnet).filter(Carnet.id_carnet.in_(data["carnet_ids"])).update(
+                {"id_collecteur": id}, synchronize_session=False
+            )
+
     db.commit()
     db.refresh(c)
     return serialiser_collecteur(c)
@@ -106,6 +184,8 @@ def supprimer_collecteur(id: int, db: Session = Depends(get_db)):
     c = db.query(Collecteur).filter_by(id_collecteur=id).first()
     if not c:
         raise HTTPException(404, "Collecteur introuvable")
+    # Détacher les carnets
+    db.query(Carnet).filter_by(id_collecteur=id).update({"id_collecteur": None})
     db.delete(c)
     db.commit()
     return {"message": "Collecteur supprimé"}

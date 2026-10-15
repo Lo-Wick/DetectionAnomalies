@@ -8,7 +8,7 @@ from app.schemas import (
     UtilisateurCreate, UtilisateurResponse, UtilisateurAvecMotDePasse,
     ChangerStatutRequest
 )
-from app.utils import (
+from app.utils.helpers import (
     generer_mot_de_passe, generer_token_qr, generer_qr_code_base64,
     generer_expiration_token
 )

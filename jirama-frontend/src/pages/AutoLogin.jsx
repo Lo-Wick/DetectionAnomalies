@@ -1,6 +1,14 @@
-import { useEffect, useState } from 'react';
+/**
+ * Page d'authentification automatique par QR code.
+ *
+ * Traite le jeton de connexion unique transmis en paramètre URL (?token=...)
+ * et initialise la session de l'utilisateur sans saisie manuelle.
+ */
+
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
+import { IconRefresh, IconAlertCircle } from '../components/Icons';
 
 function AutoLogin() {
   const [searchParams] = useSearchParams();
@@ -12,7 +20,7 @@ function AutoLogin() {
     const token = searchParams.get('token');
 
     if (!token) {
-      setErreur('Token manquant');
+      setErreur('Jeton de connexion manquant ou invalide.');
       setChargement(false);
       return;
     }
@@ -31,31 +39,34 @@ function AutoLogin() {
         navigate('/dashboard');
       })
       .catch((err) => {
-        setErreur(err.response?.data?.detail || 'Connexion automatique échouée');
+        setErreur(err.response?.data?.detail || 'La connexion automatique a échoué ou le jeton a expiré.');
         setChargement(false);
       });
-  }, []);
+  }, [navigate, searchParams]);
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-      <div className="bg-white p-8 rounded-lg shadow-lg w-96 text-center">
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-sm text-center border border-gray-100">
         {chargement ? (
-          <>
-            <div className="text-4xl mb-4">🔄</div>
-            <p className="text-gray-700">Connexion automatique en cours...</p>
-          </>
+          <div className="py-6">
+            <IconRefresh className="w-10 h-10 text-blue-600 animate-spin mx-auto mb-4" />
+            <h2 className="text-base font-bold text-gray-800 mb-1">Authentification en cours</h2>
+            <p className="text-xs text-gray-500">Validation du QR code auprès du serveur...</p>
+          </div>
         ) : (
-          <>
-            <div className="text-4xl mb-4">❌</div>
-            <h1 className="text-xl font-bold text-red-600 mb-2">Erreur</h1>
-            <p className="text-gray-700 mb-4">{erreur}</p>
+          <div className="py-4">
+            <IconAlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
+            <h1 className="text-lg font-bold text-gray-800 mb-2">Erreur de connexion</h1>
+            <p className="text-xs text-gray-600 mb-6 bg-red-50 border border-red-200 p-3 rounded-lg leading-relaxed">
+              {erreur}
+            </p>
             <button
               onClick={() => navigate('/login')}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              className="w-full py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-semibold shadow-sm"
             >
-              Retour à la connexion
+              Retour à la page de connexion
             </button>
-          </>
+          </div>
         )}
       </div>
     </div>

@@ -1,14 +1,22 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import Sidebar from '../components/Sidebar';
+/**
+ * Page de gestion des sites JIRAMA.
+ *
+ * Permet de visualiser, ajouter, modifier et supprimer les sites géographiques
+ * d'exploitation (ex: 103 — Mahajanga).
+ *
+ * Intègre PageLayout (barre latérale à gauche), LoadingProgress et des icônes SVG.
+ */
+
+import React, { useEffect, useState } from 'react';
+import PageLayout from '../components/PageLayout';
 import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
-import Toast from '../components/Toast';
+import LoadingProgress from '../components/LoadingProgress';
+import { IconSearch, IconPlus, IconEdit, IconTrash } from '../components/Icons';
 import { siteService } from '../services/siteService';
-import { authService } from '../services/authService';
 
 function Sites() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  // ─── États des données et formulaires ─────────────────────────────────────────
   const [sites, setSites] = useState([]);
   const [recherche, setRecherche] = useState('');
   const [chargement, setChargement] = useState(true);
@@ -19,17 +27,18 @@ function Sites() {
   const [siteASupprimer, setSiteASupprimer] = useState(null);
   const [toast, setToast] = useState(null);
 
-  const navigate = useNavigate();
-  const user = authService.getCurrentUser();
+  const afficherToast = (message, type = 'success') => {
+    setToast({ message, type });
+  };
 
-  // Charger les sites
+  // ─── Chargement de la liste des sites ─────────────────────────────────────────
   const chargerSites = async () => {
     try {
       setChargement(true);
       const data = await siteService.lister();
       setSites(data);
     } catch (err) {
-      afficherToast('Erreur lors du chargement', 'error');
+      afficherToast('Erreur lors du chargement des sites', 'error');
     } finally {
       setChargement(false);
     }
@@ -39,30 +48,19 @@ function Sites() {
     chargerSites();
   }, []);
 
-  const afficherToast = (message, type = 'success') => {
-    setToast({ message, type });
-  };
-
-  const handleLogout = () => {
-    authService.logout();
-    navigate('/login');
-  };
-
-  // Ouvrir modal pour création
+  // ─── Gestion de la modale d'ajout / modification ──────────────────────────────
   const ouvrirCreation = () => {
     setSiteEnEdition(null);
     setFormData({ code_site: '', nom_site: '' });
     setModalOuvert(true);
   };
 
-  // Ouvrir modal pour édition
   const ouvrirEdition = (site) => {
     setSiteEnEdition(site);
     setFormData({ code_site: site.code_site, nom_site: site.nom_site });
     setModalOuvert(true);
   };
 
-  // Soumettre le formulaire
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -76,18 +74,17 @@ function Sites() {
       setModalOuvert(false);
       chargerSites();
     } catch (err) {
-      const message = err.response?.data?.detail || 'Erreur lors de l\'opération';
+      const message = err.response?.data?.detail || "Erreur lors de l'enregistrement";
       afficherToast(message, 'error');
     }
   };
 
-  // Demander confirmation de suppression
+  // ─── Suppression d'un site ────────────────────────────────────────────────────
   const demanderSuppression = (site) => {
     setSiteASupprimer(site);
     setConfirmOuvert(true);
   };
 
-  // Confirmer la suppression
   const confirmerSuppression = async () => {
     try {
       await siteService.supprimer(siteASupprimer.id_site);
@@ -102,104 +99,94 @@ function Sites() {
     }
   };
 
-  // Filtrer les sites
+  // ─── Filtrage en temps réel ───────────────────────────────────────────────────
   const sitesFiltres = sites.filter((s) =>
     s.code_site.toLowerCase().includes(recherche.toLowerCase()) ||
     s.nom_site.toLowerCase().includes(recherche.toLowerCase())
   );
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <Sidebar isOpen={isSidebarOpen} onToggle={() => setIsSidebarOpen(!isSidebarOpen)} />
-
-      <div className={`transition-all duration-300 ${isSidebarOpen ? 'mr-64' : 'mr-0'}`}>
-        {/* Header */}
-        <header className="bg-white shadow-sm px-8 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-800">Gestion des sites</h1>
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-sm font-semibold text-gray-800">{user?.nom_utilisateur}</p>
-              <p className="text-xs text-gray-500">{user?.role}</p>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm"
-            >
-              Déconnexion
-            </button>
+    <PageLayout title="Gestion des sites" toast={toast} setToast={setToast}>
+      {/* Barre d'outils et recherche */}
+      <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="relative w-full sm:w-80">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+            <IconSearch className="w-4 h-4" />
           </div>
-        </header>
+          <input
+            type="text"
+            placeholder="Rechercher par code ou nom..."
+            value={recherche}
+            onChange={(e) => setRecherche(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          />
+        </div>
 
-        {/* Contenu */}
-        <main className="p-8">
-          {/* Barre d'actions */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
-              <input
-                type="text"
-                placeholder="Rechercher un site..."
-                value={recherche}
-                onChange={(e) => setRecherche(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-md w-80 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <span className="text-sm text-gray-600">
-                {sitesFiltres.length} site(s)
-              </span>
-            </div>
-            <button
-              onClick={ouvrirCreation}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
-            >
-              + Nouveau site
-            </button>
+        <button
+          onClick={ouvrirCreation}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-semibold shadow-sm"
+        >
+          <IconPlus className="w-4 h-4" />
+          <span>Nouveau site</span>
+        </button>
+      </div>
+
+      {/* Tableau des sites */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        {chargement ? (
+          <LoadingProgress message="Chargement de la liste des sites..." />
+        ) : sitesFiltres.length === 0 ? (
+          <div className="p-12 text-center text-gray-500 text-sm">
+            {recherche ? 'Aucun site ne correspond à votre recherche' : 'Aucun site enregistré'}
           </div>
-
-          {/* Tableau */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            {chargement ? (
-              <div className="p-12 text-center text-gray-500">Chargement...</div>
-            ) : sitesFiltres.length === 0 ? (
-              <div className="p-12 text-center text-gray-500">
-                {recherche ? 'Aucun site trouvé' : 'Aucun site enregistré'}
-              </div>
-            ) : (
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Code</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Nom</th>
-                    <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {sitesFiltres.map((site) => (
-                    <tr key={site.id_site} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm font-semibold text-gray-800">{site.code_site}</td>
-                      <td className="px-6 py-4 text-sm text-gray-700">{site.nom_site}</td>
-                      <td className="px-6 py-4 text-right">
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase">
+                <tr>
+                  <th className="px-6 py-3 text-left">Code site</th>
+                  <th className="px-6 py-3 text-left">Nom du site</th>
+                  <th className="px-6 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {sitesFiltres.map((site) => (
+                  <tr key={site.id_site} className="hover:bg-gray-50/80 transition">
+                    <td className="px-6 py-4 font-mono font-semibold text-blue-600">
+                      {site.code_site}
+                    </td>
+                    <td className="px-6 py-4 font-medium text-gray-800">
+                      {site.nom_site}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => ouvrirEdition(site)}
-                          className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 mr-2"
+                          className="flex items-center gap-1 px-2.5 py-1 text-xs bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition font-medium"
+                          title="Modifier ce site"
                         >
-                          Modifier
+                          <IconEdit className="w-3.5 h-3.5" />
+                          <span>Modifier</span>
                         </button>
                         <button
                           onClick={() => demanderSuppression(site)}
-                          className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200"
+                          className="flex items-center gap-1 px-2.5 py-1 text-xs bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition font-medium"
+                          title="Supprimer ce site"
                         >
-                          Supprimer
+                          <IconTrash className="w-3.5 h-3.5" />
+                          <span>Supprimer</span>
                         </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </main>
+        )}
       </div>
 
-      {/* Modal formulaire */}
+      {/* Modale d'ajout / modification */}
       <Modal
         isOpen={modalOuvert}
         onClose={() => setModalOuvert(false)}
@@ -216,7 +203,7 @@ function Sites() {
               onChange={(e) => setFormData({ ...formData, code_site: e.target.value })}
               required
               maxLength={10}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
               placeholder="Ex: 103"
             />
           </div>
@@ -230,21 +217,21 @@ function Sites() {
               onChange={(e) => setFormData({ ...formData, nom_site: e.target.value })}
               required
               maxLength={100}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Ex: Mahajanga"
             />
           </div>
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
             <button
               type="button"
               onClick={() => setModalOuvert(false)}
-              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition"
             >
               Annuler
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-semibold shadow-sm"
             >
               {siteEnEdition ? 'Modifier' : 'Créer'}
             </button>
@@ -252,24 +239,15 @@ function Sites() {
         </form>
       </Modal>
 
-      {/* Confirmation suppression */}
+      {/* Confirmation de suppression */}
       <ConfirmDialog
         isOpen={confirmOuvert}
         onClose={() => setConfirmOuvert(false)}
         onConfirm={confirmerSuppression}
         title="Confirmer la suppression"
-        message={`Voulez-vous vraiment supprimer le site "${siteASupprimer?.nom_site}" (${siteASupprimer?.code_site}) ?`}
+        message={`Voulez-vous vraiment supprimer le site "${siteASupprimer?.nom_site}" (${siteASupprimer?.code_site}) ? Cette action est irréversible.`}
       />
-
-      {/* Toast */}
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
-        />
-      )}
-    </div>
+    </PageLayout>
   );
 }
 

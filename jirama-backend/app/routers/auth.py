@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 import bcrypt
+from datetime import datetime
 from app.database import get_db
 from app.models import Utilisateur
 from app.schemas import LoginRequest, TokenResponse
@@ -9,12 +10,10 @@ router = APIRouter(prefix="/api/auth", tags=["Authentification"])
 
 
 def hash_password(password: str) -> str:
-    """Hash un mot de passe avec bcrypt."""
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(password: str, hashed: str) -> bool:
-    """Vérifie un mot de passe contre son hash bcrypt."""
     try:
         return bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8"))
     except Exception:
@@ -31,18 +30,11 @@ def login(credentials: LoginRequest, db: Session = Depends(get_db)):
     if not user.actif:
         raise HTTPException(403, "Compte désactivé")
 
-    # Pour l'instant, token simple (JWT à ajouter plus tard)
     return TokenResponse(
         access_token=f"token_{user.id_utilisateur}",
         role=user.role,
         nom_utilisateur=user.nom_utilisateur,
     )
-
-
-
-from datetime import datetime
-from app.models import Utilisateur
-from app.utils import generer_token_qr
 
 
 @router.get("/auto-login")

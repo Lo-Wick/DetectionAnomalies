@@ -1,5 +1,15 @@
+"""
+Définition des 13 modèles SQLAlchemy de l'application JIRAMA.
+
+Chaque classe représente une table PostgreSQL et ses relations.
+L'ordre de définition respecte les dépendances (FK) :
+  Site → Tournée → Carnet → Installation → Compteur
+  Client, Collecteur, TypeLecture, Observation, ProfilClient (référentiels)
+  Import, Relève (tables transactionnelles)
+"""
+
 from sqlalchemy import (
-    Column, Integer, String, Boolean, DateTime, ForeignKey, 
+    Column, Integer, String, Boolean, DateTime, ForeignKey,
     UniqueConstraint, CheckConstraint, Text
 )
 from sqlalchemy.orm import relationship
@@ -7,7 +17,12 @@ from sqlalchemy.sql import func
 from app.database import Base
 
 
-# ============ 1. UTILISATEUR ============
+# ============================================================
+# 1. UTILISATEUR
+# Représente un compte d'accès à l'application (ADMIN ou USER).
+# Chaque utilisateur peut se connecter par login/mot de passe
+# ou via un QR code avec durée de vie limitée.
+# ============================================================
 class Utilisateur(Base):
     __tablename__ = "utilisateur"
     
@@ -28,7 +43,11 @@ class Utilisateur(Base):
     )
 
 
-# ============ 2. SITE ============
+# ============================================================
+# 2. SITE
+# Unité géographique de premier niveau (ex: Site 103 = Mahajanga).
+# Identifié par un code unique de 3 chiffres extrait du numéro d'installation.
+# ============================================================
 class Site(Base):
     __tablename__ = "site"
     
@@ -39,7 +58,11 @@ class Site(Base):
     tournees = relationship("Tournee", back_populates="site")
 
 
-# ============ 3. TOURNEE ============
+# ============================================================
+# 3. TOURNEE
+# Subdivision d'un site. Une tournée = un agent couvre un secteur.
+# Code unique dans le contexte d'un site (contrainte composite).
+# ============================================================
 class Tournee(Base):
     __tablename__ = "tournee"
     
@@ -55,15 +78,22 @@ class Tournee(Base):
     )
 
 
-# ============ 4. CARNET ============
+# ============================================================
+# 4. CARNET
+# Regroupement d'installations dans une tournée.
+# Code unique dans le contexte d'une tournée (contrainte composite).
+# ============================================================
 class Carnet(Base):
     __tablename__ = "carnet"
     
     id_carnet = Column(Integer, primary_key=True, index=True)
     code_carnet = Column(String(10), nullable=False)
     id_tournee = Column(Integer, ForeignKey("tournee.id_tournee"), nullable=False)
+    # Collecteur responsable de ce carnet/tournée
+    id_collecteur = Column(Integer, ForeignKey("collecteur.id_collecteur", ondelete="SET NULL"), nullable=True)
     
     tournee = relationship("Tournee", back_populates="carnets")
+    collecteur = relationship("Collecteur", back_populates="carnets")
     installations = relationship("Installation", back_populates="carnet")
     
     __table_args__ = (
@@ -71,7 +101,11 @@ class Carnet(Base):
     )
 
 
-# ============ 5. CLIENT ============
+# ============================================================
+# 5. CLIENT
+# Abonné JIRAMA identifié par son numéro client unique.
+# Un client peut avoir plusieurs installations (eau E et électricité W).
+# ============================================================
 class Client(Base):
     __tablename__ = "client"
     
@@ -82,14 +116,19 @@ class Client(Base):
     installations = relationship("Installation", back_populates="client")
 
 
-# ============ 6. INSTALLATION ============
+# ============================================================
+# 6. INSTALLATION
+# Raccordement physique d'un client au réseau JIRAMA.
+# Le numéro d'installation (12 car.) encode : site + tournée + carnet + compte + type.
+# type_installation : 'E' = électricité, 'W' = eau.
+# ============================================================
 class Installation(Base):
     __tablename__ = "installation"
     
     id_installation = Column(Integer, primary_key=True, index=True)
-    numero_installation = Column(String(12), unique=True, nullable=False, index=True)
-    numero_compte = Column(String(4), nullable=False)
-    type_installation = Column(String(1), nullable=False)
+    numero_installation = Column(String(50), unique=True, nullable=False, index=True)
+    numero_compte = Column(String(20), nullable=True)
+    type_installation = Column(String(10), nullable=True)
     id_carnet = Column(Integer, ForeignKey("carnet.id_carnet"), nullable=False)
     id_client = Column(Integer, ForeignKey("client.id_client"), nullable=False)
     
@@ -97,20 +136,14 @@ class Installation(Base):
     client = relationship("Client", back_populates="installations")
     compteurs = relationship("Compteur", back_populates="installation")
     releves = relationship("Releve", back_populates="installation")
-    
-    __table_args__ = (
-        UniqueConstraint("id_carnet", "numero_compte", "type_installation", 
-                         name="uq_carnet_compte_type"),
-        CheckConstraint("char_length(numero_installation) = 12", 
-                        name="check_numero_installation"),
-        CheckConstraint("char_length(numero_compte) = 4", 
-                        name="check_numero_compte"),
-        CheckConstraint("type_installation IN ('E', 'W')", 
-                        name="check_type_installation"),
-    )
 
 
-# ============ 7. COMPTEUR ============
+# ============================================================
+# 7. COMPTEUR
+# Appareil physique de mesure installé sur une installation.
+# Un compteur peut être remplacé au fil du temps ; le relevé
+# référence le compteur réellement utilisé lors de la lecture.
+# ============================================================
 class Compteur(Base):
     __tablename__ = "compteur"
     
@@ -128,17 +161,28 @@ class Compteur(Base):
     )
 
 
-# ============ 8. COLLECTEUR ============
+# ============================================================
+# 8. COLLECTEUR
+# Agent de terrain chargé de relever les compteurs.
+# Ce n'est PAS un utilisateur de l'application — c'est un référentiel
+# sélectionné au moment de l'import Excel.
+# ============================================================
 class Collecteur(Base):
     __tablename__ = "collecteur"
     
     id_collecteur = Column(Integer, primary_key=True, index=True)
     nom_collecteur = Column(String(100), nullable=False)
     
+    # Carnets (tournées/carnets) attribués à ce collecteur
+    carnets = relationship("Carnet", back_populates="collecteur")
     releves = relationship("Releve", back_populates="collecteur")
 
 
-# ============ 9. TYPE_LECTURE ============
+# ============================================================
+# 9. TYPE_LECTURE
+# Code indiquant la nature d'un relevé (ex: 01 = normal, 02 = estimé).
+# Extrait de la colonne N du fichier Excel.
+# ============================================================
 class TypeLecture(Base):
     __tablename__ = "type_lecture"
     
@@ -149,7 +193,11 @@ class TypeLecture(Base):
     releves = relationship("Releve", back_populates="type_lecture")
 
 
-# ============ 10. OBSERVATION ============
+# ============================================================
+# 10. OBSERVATION
+# Observation relevée lors de la lecture (ex: MF = mauvais fonctionnement).
+# Peut être NULL si aucune observation particulière.
+# ============================================================
 class Observation(Base):
     __tablename__ = "observation"
     
@@ -160,7 +208,11 @@ class Observation(Base):
     releves = relationship("Releve", back_populates="observation")
 
 
-# ============ 11. PROFIL_CLIENT ============
+# ============================================================
+# 11. PROFIL_CLIENT
+# Classification du client (ex: 0 = non défini, 7 = domestique).
+# Le profil '0' est créé par défaut si absent.
+# ============================================================
 class ProfilClient(Base):
     __tablename__ = "profil_client"
     
@@ -171,7 +223,11 @@ class ProfilClient(Base):
     releves = relationship("Releve", back_populates="profil")
 
 
-# ============ 12. IMPORT ============
+# ============================================================
+# 12. IMPORT
+# Traçabilité de chaque import de fichier Excel.
+# Relie tous les relevés insérés à leur fichier source.
+# ============================================================
 class Import(Base):
     __tablename__ = "import"
     
@@ -186,28 +242,49 @@ class Import(Base):
     releves = relationship("Releve", back_populates="import_obj")
 
 
-# ============ 13. RELEVE ============
+# ============================================================
+# 13. RELEVE
+# Table centrale de l'application. Chaque enregistrement correspond
+# à une ligne de relevé importée depuis un fichier Excel JIRAMA.
+# Contrainte d'unicité : (installation, annee, periode) — pas de doublons.
+# IMPORTANT : les contraintes CHECK sur la longueur des lectures
+# ont été retirées (règle R3 supprimée) car les valeurs peuvent
+# avoir des longueurs variables dans les fichiers réels.
+# ============================================================
 class Releve(Base):
     __tablename__ = "releve"
     
     id_releve = Column(Integer, primary_key=True, index=True)
-    annee = Column(Integer, nullable=False)
-    periode = Column(Integer, nullable=False)
-    lecture_precedente = Column(String(5), nullable=True)
-    lecture_nouvelle = Column(String(5), nullable=False)
+    # Année et période (nullables pour enregistrer les lignes avec erreurs de date)
+    annee = Column(Integer, nullable=True)
+    periode = Column(Integer, nullable=True)
+    # Longueur étendue à 20 car. pour accepter les valeurs variables des fichiers Excel
+    lecture_precedente = Column(String(20), nullable=True)
+    lecture_nouvelle = Column(String(20), nullable=True)
     
-    id_installation = Column(Integer, ForeignKey("installation.id_installation"), 
-                             nullable=False)
-    id_compteur = Column(Integer, ForeignKey("compteur.id_compteur"), nullable=False)
-    id_collecteur = Column(Integer, ForeignKey("collecteur.id_collecteur"), 
-                           nullable=False)
-    id_type_lecture = Column(Integer, ForeignKey("type_lecture.id_type_lecture"), 
-                             nullable=False)
-    id_observation = Column(Integer, ForeignKey("observation.id_observation"), 
-                            nullable=True)
-    id_profil = Column(Integer, ForeignKey("profil_client.id_profil"), nullable=False)
+    # Clés étrangères (nullables pour permettre la persistance de toutes les lignes, y compris avec erreurs)
+    id_installation = Column(Integer, ForeignKey("installation.id_installation"), nullable=True)
+    id_compteur = Column(Integer, ForeignKey("compteur.id_compteur"), nullable=True)
+    id_collecteur = Column(Integer, ForeignKey("collecteur.id_collecteur"), nullable=True)
+    id_type_lecture = Column(Integer, ForeignKey("type_lecture.id_type_lecture"), nullable=True)
+    id_observation = Column(Integer, ForeignKey("observation.id_observation"), nullable=True)
+    id_profil = Column(Integer, ForeignKey("profil_client.id_profil"), nullable=True)
     id_import = Column(Integer, ForeignKey("import.id_import"), nullable=False)
     
+    # Indicateurs et informations sur les erreurs et anomalies
+    est_erreur = Column(Boolean, default=False, nullable=False)
+    message_erreur = Column(Text, nullable=True)
+    est_anomalie = Column(Boolean, default=False, nullable=False)
+    type_anomalie = Column(String(50), nullable=True)
+
+    # Données brutes issues du fichier Excel (conservées même en cas d'erreur de parsing)
+    numero_installation_brut = Column(String(50), nullable=True)
+    nom_client_brut = Column(String(200), nullable=True)
+    numero_client_brut = Column(String(50), nullable=True)
+    numero_compteur_brut = Column(String(50), nullable=True)
+    code_tournee_brut = Column(String(20), nullable=True)
+    code_carnet_brut = Column(String(20), nullable=True)
+
     installation = relationship("Installation", back_populates="releves")
     compteur = relationship("Compteur", back_populates="releves")
     collecteur = relationship("Collecteur", back_populates="releves")
@@ -217,14 +294,7 @@ class Releve(Base):
     import_obj = relationship("Import", back_populates="releves")
     
     __table_args__ = (
-        UniqueConstraint("id_installation", "annee", "periode", 
+        # Contrainte d'unicité : un seul relevé par installation et par période
+        UniqueConstraint("id_installation", "annee", "periode",
                          name="uq_installation_annee_periode"),
-        CheckConstraint("annee BETWEEN 2000 AND 2100", name="check_annee"),
-        CheckConstraint("periode BETWEEN 1 AND 12", name="check_periode"),
-        CheckConstraint(
-            "char_length(lecture_precedente) = 5 OR lecture_precedente IS NULL", 
-            name="check_lecture_precedente"
-        ),
-        CheckConstraint("char_length(lecture_nouvelle) = 5", 
-                        name="check_lecture_nouvelle"),
     )

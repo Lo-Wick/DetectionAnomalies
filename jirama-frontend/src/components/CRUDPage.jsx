@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import Modal from './Modal';
 import ConfirmDialog from './ConfirmDialog';
 import PageLayout from './PageLayout';
+import LoadingProgress from './LoadingProgress';
+import { IconSearch, IconPlus, IconEdit, IconTrash } from './Icons';
 
 function CRUDPage({ title, config }) {
   const [items, setItems] = useState([]);
@@ -22,7 +24,7 @@ function CRUDPage({ title, config }) {
       const data = await config.service.lister();
       setItems(data);
     } catch (err) {
-      afficherToast('Erreur lors du chargement', 'error');
+      afficherToast('Erreur lors du chargement des données', 'error');
     } finally {
       setChargement(false);
     }
@@ -61,111 +63,118 @@ function CRUDPage({ title, config }) {
       setModalOuvert(false);
       charger();
     } catch (err) {
-      const message = err.response?.data?.detail || 'Erreur lors de l\'opération';
-      afficherToast(message, 'error');
+      afficherToast(err.response?.data?.detail || 'Erreur lors de l\'enregistrement', 'error');
     }
   };
 
   const confirmerSuppression = async () => {
     try {
       await config.service.supprimer(itemASupprimer[config.idField]);
-      afficherToast(`${config.labelSingulier} supprimé(e)`);
+      afficherToast(`${config.labelSingulier} supprimé(e) avec succès`);
       setConfirmOuvert(false);
       setItemASupprimer(null);
       charger();
     } catch (err) {
-      const message = err.response?.data?.detail || 'Erreur lors de la suppression';
-      afficherToast(message, 'error');
-      setConfirmOuvert(false);
+      afficherToast(err.response?.data?.detail || 'Erreur lors de la suppression', 'error');
     }
   };
 
-  const itemsFiltres = items.filter((item) =>
-    config.searchFields.some((field) =>
-      String(item[field] || '').toLowerCase().includes(recherche.toLowerCase())
-    )
-  );
+  const itemsFiltres = items.filter((item) => {
+    if (!recherche) return true;
+    const q = recherche.toLowerCase();
+    return config.searchFields.some((champ) => {
+      const val = item[champ];
+      return val && val.toString().toLowerCase().includes(q);
+    });
+  });
 
   return (
     <PageLayout title={title} toast={toast} setToast={setToast}>
       {/* Barre d'actions */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
+      <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="relative w-full sm:w-80">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+            <IconSearch className="w-4 h-4" />
+          </div>
           <input
             type="text"
-            placeholder={`Rechercher un ${config.labelSingulier.toLowerCase()}...`}
+            placeholder="Rechercher..."
             value={recherche}
             onChange={(e) => setRecherche(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-md w-80 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
           />
-          <span className="text-sm text-gray-600">{itemsFiltres.length} résultat(s)</span>
         </div>
+
         <button
           onClick={ouvrirCreation}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-semibold shadow-sm"
         >
-          + Nouveau {config.labelSingulier.toLowerCase()}
+          <IconPlus className="w-4 h-4" />
+          <span>Nouveau {config.labelSingulier.toLowerCase()}</span>
         </button>
       </div>
 
-      {/* Tableau */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      {/* Tableau ou état de chargement */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {chargement ? (
-          <div className="p-12 text-center text-gray-500">Chargement...</div>
+          <LoadingProgress message={`Chargement des ${config.labelSingulier.toLowerCase()}s...`} />
         ) : itemsFiltres.length === 0 ? (
-          <div className="p-12 text-center text-gray-500">
-            {recherche ? 'Aucun résultat' : `Aucun ${config.labelSingulier.toLowerCase()} enregistré`}
+          <div className="p-12 text-center text-gray-500 text-sm">
+            {recherche ? 'Aucun résultat trouvé pour votre recherche' : `Aucun(e) ${config.labelSingulier.toLowerCase()} enregistré(e)`}
           </div>
         ) : (
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                {config.columns.map((col, i) => (
-                  <th
-                    key={i}
-                    className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase"
-                  >
-                    {col.label}
-                  </th>
-                ))}
-                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {itemsFiltres.map((item) => (
-                <tr key={item[config.idField]} className="hover:bg-gray-50">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-600 uppercase">
+                <tr>
                   {config.columns.map((col, i) => (
-                    <td key={i} className="px-6 py-4 text-sm text-gray-700">
-                      {col.render ? col.render(item) : item[col.field]}
-                    </td>
+                    <th key={i} className="px-6 py-3 text-left">
+                      {col.label}
+                    </th>
                   ))}
-                  <td className="px-6 py-4 text-right">
-                    <button
-                      onClick={() => ouvrirEdition(item)}
-                      className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 mr-2"
-                    >
-                      Modifier
-                    </button>
-                    <button
-                      onClick={() => {
-                        setItemASupprimer(item);
-                        setConfirmOuvert(true);
-                      }}
-                      className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200"
-                    >
-                      Supprimer
-                    </button>
-                  </td>
+                  <th className="px-6 py-3 text-right">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {itemsFiltres.map((item) => (
+                  <tr key={item[config.idField]} className="hover:bg-gray-50/80 transition">
+                    {config.columns.map((col, i) => (
+                      <td key={i} className="px-6 py-4 text-gray-700">
+                        {col.render ? col.render(item) : item[col.field]}
+                      </td>
+                    ))}
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => ouvrirEdition(item)}
+                          className="flex items-center gap-1 px-2.5 py-1 text-xs bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition font-medium"
+                          title="Modifier"
+                        >
+                          <IconEdit className="w-3.5 h-3.5" />
+                          <span>Modifier</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setItemASupprimer(item);
+                            setConfirmOuvert(true);
+                          }}
+                          className="flex items-center gap-1 px-2.5 py-1 text-xs bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition font-medium"
+                          title="Supprimer"
+                        >
+                          <IconTrash className="w-3.5 h-3.5" />
+                          <span>Supprimer</span>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
-      {/* Modal */}
+      {/* Modale d'ajout / modification */}
       <Modal
         isOpen={modalOuvert}
         onClose={() => setModalOuvert(false)}
@@ -175,7 +184,7 @@ function CRUDPage({ title, config }) {
           {config.fields.map((field) => (
             <div key={field.name}>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                {field.label} {field.required && '*'}
+                {field.label} {field.required && <span className="text-red-500">*</span>}
               </label>
               {field.type === 'textarea' ? (
                 <textarea
@@ -184,7 +193,7 @@ function CRUDPage({ title, config }) {
                   required={field.required}
                   rows={3}
                   maxLength={field.maxLength}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               ) : (
                 <input
@@ -194,36 +203,37 @@ function CRUDPage({ title, config }) {
                   required={field.required}
                   maxLength={field.maxLength}
                   placeholder={field.placeholder}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               )}
             </div>
           ))}
-          <div className="flex justify-end gap-3 pt-2">
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
             <button
               type="button"
               onClick={() => setModalOuvert(false)}
-              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition"
             >
               Annuler
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium shadow-sm"
             >
-              {itemEnEdition ? 'Modifier' : 'Créer'}
+              Enregistrer
             </button>
           </div>
         </form>
       </Modal>
 
-      {/* Confirmation */}
+      {/* Confirmation de suppression */}
       <ConfirmDialog
         isOpen={confirmOuvert}
         onClose={() => setConfirmOuvert(false)}
         onConfirm={confirmerSuppression}
-        title="Confirmer la suppression"
-        message={`Voulez-vous vraiment supprimer "${config.displayName(itemASupprimer)}" ?`}
+        title={`Supprimer ${config.labelSingulier.toLowerCase()}`}
+        message={`Êtes-vous certain de vouloir supprimer ${config.displayName(itemASupprimer)} ? Cette action est irréversible.`}
       />
     </PageLayout>
   );
