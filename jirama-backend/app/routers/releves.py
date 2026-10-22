@@ -10,7 +10,7 @@ Les relevés sont en lecture seule dans cette API : ils ne sont créés
 que par l'import de fichiers Excel (voir routers/imports.py).
 """
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Header, Request, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_
@@ -52,10 +52,16 @@ def serialiser_releve(r: Releve) -> dict:
 
     # Attribution du collecteur : direct ou déduit du carnet
     nom_collecteur = None
+    email_collecteur = None
+    id_coll = None
     if r.collecteur:
         nom_collecteur = r.collecteur.nom_collecteur
+        email_collecteur = r.collecteur.email
+        id_coll = r.collecteur.id_collecteur
     elif carnet and carnet.collecteur:
         nom_collecteur = carnet.collecteur.nom_collecteur
+        email_collecteur = carnet.collecteur.email
+        id_coll = carnet.collecteur.id_collecteur
 
     # Calcul anomalie R2
     est_anomalie_r2 = (
@@ -94,7 +100,8 @@ def serialiser_releve(r: Releve) -> dict:
 
         # Collecteur attribué (selon carnet / tournée)
         "collecteur": nom_collecteur or "Non attribué",
-        "id_collecteur": r.id_collecteur or (carnet.id_collecteur if carnet else None),
+        "id_collecteur": id_coll,
+        "email_collecteur": email_collecteur,
 
         # Type de lecture avec code ET description
         "type_lecture": r.type_lecture.code_type if r.type_lecture else None,
@@ -468,3 +475,116 @@ def detail_releve(id_releve: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "Relevé introuvable")
 
     return serialiser_releve(r)
+
+
+@router.post("/{id_releve}/alerter-collecteur")
+def alerter_collecteur(
+    id_releve: int,
+    request: Request,
+    authorization: str = Header(None),
+    db: Session = Depends(get_db)
+):
+    """
+    Envoie un ordre de mission par e-mail direct au collecteur responsable
+    de l'installation concernée par une anomalie ou une erreur.
+    Lui demande de refaire la collecte sur le terrain et de revenir au bureau.
+
+    Si le collecteur n'a pas d'adresse e-mail renseignée, l'opération est refusée.
+    """
+    from fastapi import HTTPException
+    from app.services.email_service import notifier_collecteur_recollecte
+    from app.services.audit_service import journaliser_action
+    from app.models import Utilisateur
+
+    adresse_ip = request.client.host if request.client else None
+
+    # Identification de l'utilisateur émetteur (si token fourni)
+    login_operateur = "Système"
+    id_user = None
+    if authorization and authorization.startswith("Bearer token_"):
+        try:
+            id_user = int(authorization.replace("Bearer token_", ""))
+            user = db.query(Utilisateur).filter_by(id_utilisateur=id_user).first()
+            if user:
+                login_operateur = user.login
+        except Exception:
+            pass
+
+    # Récupération du relevé avec ses relations
+    r = (
+        db.query(Releve)
+        .options(
+            joinedload(Releve.installation).joinedload(Installation.carnet)
+                .joinedload(Carnet.tournee).joinedload(Tournee.site),
+            joinedload(Releve.installation).joinedload(Installation.client),
+            joinedload(Releve.collecteur),
+            joinedload(Releve.observation),
+        )
+        .filter(Releve.id_releve == id_releve)
+        .first()
+    )
+
+    if not r:
+        raise HTTPException(404, "Relevé introuvable")
+
+    # Détermination du collecteur (direct ou via le carnet)
+    carnet = r.installation.carnet if r.installation else None
+    collecteur = r.collecteur or (carnet.collecteur if carnet else None)
+
+    if not collecteur:
+        raise HTTPException(
+            400,
+            "Aucun collecteur n'est attribué à cette tournée/carnet. "
+            "Veuillez d'abord assigner un collecteur dans la gestion des collecteurs."
+        )
+
+    if not collecteur.email or "@" not in collecteur.email:
+        raise HTTPException(
+            400,
+            f"Le collecteur '{collecteur.nom_collecteur}' ne possède pas d'adresse e-mail. "
+            f"Veuillez renseigner son e-mail dans la page Collecteurs pour pouvoir lui transmettre des alertes."
+        )
+
+    # Données pour l'e-mail
+    num_inst = (r.installation.numero_installation if r.installation else r.numero_installation_brut) or "Inconnue"
+    tournee_code = carnet.tournee.code_tournee if (carnet and carnet.tournee) else (r.code_tournee_brut or "?")
+    carnet_code = carnet.code_carnet if carnet else (r.code_carnet_brut or "?")
+    client_nom = (r.installation.client.nom_client if (r.installation and r.installation.client) else r.nom_client_brut) or ""
+    motif = r.message_erreur or r.type_anomalie or "Anomalie de relevé constatée"
+
+    # Envoi de l'e-mail d'alerte / recolle
+    resultat_envoi = notifier_collecteur_recollecte(
+        email_collecteur=collecteur.email,
+        nom_collecteur=collecteur.nom_collecteur,
+        numero_installation=num_inst,
+        tournee=tournee_code,
+        carnet=carnet_code,
+        client_nom=client_nom,
+        anomalie=motif
+    )
+
+    if not resultat_envoi.get("succes"):
+        raise HTTPException(500, resultat_envoi.get("message", "Échec lors de l'envoi de l'e-mail."))
+
+    # Journalisation d'audit de l'envoi
+    journaliser_action(
+        db=db,
+        login=login_operateur,
+        id_utilisateur=id_user,
+        action="ENVOI_EMAIL_COLLECTEUR",
+        entite="RELEVE",
+        details=(
+            f"Ordre de recollecte transmis par e-mail à '{collecteur.nom_collecteur}' "
+            f"({collecteur.email}) pour l'installation {num_inst} (Tournée {tournee_code}-Carnet {carnet_code})."
+        ),
+        adresse_ip=adresse_ip
+    )
+
+    return {
+        "message": f"Ordre de recollecte transmis avec succès à {collecteur.nom_collecteur} ({collecteur.email}).",
+        "email_collecteur": collecteur.email,
+        "nom_collecteur": collecteur.nom_collecteur,
+        "numero_installation": num_inst,
+        "simule": resultat_envoi.get("simule", False)
+    }
+

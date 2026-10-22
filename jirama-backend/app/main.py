@@ -33,7 +33,9 @@ from app.routers import (
     releves,
     anomalies,
     stats,
+    profil,
 )
+
 
 # ─── Création automatique des tables ───────────────────────────────────────────
 # Si les tables n'existent pas encore en base, elles sont créées ici.
@@ -68,6 +70,8 @@ app.include_router(imports.router)
 app.include_router(releves.router)
 app.include_router(anomalies.router)
 app.include_router(stats.router)
+app.include_router(profil.router)
+
 
 
 @app.get("/", tags=["Santé"])

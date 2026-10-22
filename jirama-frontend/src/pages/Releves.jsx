@@ -18,6 +18,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import PageLayout from '../components/PageLayout';
 import Modal from '../components/Modal';
+import ConfirmDialog from '../components/ConfirmDialog';
 import LoadingProgress from '../components/LoadingProgress';
 import api from '../services/api';
 import {
@@ -33,7 +34,9 @@ import {
   IconEye,
   IconChevronLeft,
   IconChevronRight,
+  IconMail,
 } from '../components/Icons';
+
 
 function Releves() {
   // ─── État des données et pagination ────────────────────────────────────────
@@ -72,8 +75,62 @@ function Releves() {
   const [releveDetail, setReleveDetail] = useState(null);
   const [toast, setToast] = useState(null);
   const [exportEnCours, setExportEnCours] = useState(false);
+  const [dialogueEmail, setDialogueEmail] = useState({
+    ouvert: false,
+    releve: null,
+    enCours: false,
+  });
 
   const afficherToast = (message, type = 'success') => setToast({ message, type });
+
+  /**
+   * Vérifie la disponibilité d'une adresse email pour le collecteur
+   * et ouvre la modale de confirmation.
+   */
+  const preparerEnvoiEmail = (releve) => {
+    if (!releve.id_collecteur || releve.collecteur === 'Non attribué') {
+      return afficherToast(
+        "Aucun collecteur n'est attribué à cette tournée/carnet. Veuillez d'abord lui affecter un collecteur dans la page Collecteurs.",
+        'error'
+      );
+    }
+
+    if (!releve.email_collecteur) {
+      return afficherToast(
+        `Le collecteur "${releve.collecteur}" n'a pas d'adresse e-mail renseignée. Impossible d'envoyer la notification.`,
+        'error'
+      );
+    }
+
+    setDialogueEmail({
+      ouvert: true,
+      releve,
+      enCours: false,
+    });
+  };
+
+  /**
+   * Déclenche l'appel API backend pour transmettre l'ordre de recollecte par email.
+   */
+  const confirmerEnvoiEmail = async () => {
+    const rel = dialogueEmail.releve;
+    if (!rel) return;
+
+    try {
+      setDialogueEmail((prev) => ({ ...prev, enCours: true }));
+      const res = await api.post(`/releves/${rel.id_releve}/alerter-collecteur`);
+      afficherToast(
+        res.data?.message || `Ordre de recollecte transmis avec succès à ${rel.collecteur}`,
+        'success'
+      );
+      setDialogueEmail({ ouvert: false, releve: null, enCours: false });
+    } catch (err) {
+      const msg = err.response?.data?.detail || "Erreur lors de l'envoi de l'e-mail au collecteur";
+      afficherToast(msg, 'error');
+      setDialogueEmail((prev) => ({ ...prev, enCours: false }));
+    }
+  };
+
 
   // ─── Chargement des référentiels pour les listes déroulantes ───────────────
   useEffect(() => {
@@ -555,16 +612,35 @@ function Releves() {
                         </span>
                       </td>
 
-                      {/* Action Détail */}
-                      <td className="px-4 py-3 text-right">
+                      {/* Actions */}
+                      <td className="px-4 py-3 text-right space-x-1 whitespace-nowrap">
+                        {/* Bouton pour alerter le collecteur par e-mail en cas d'anomalie ou de besoin de recollecte */}
+                        <button
+                          onClick={() => preparerEnvoiEmail(r)}
+                          className={`p-1.5 rounded-lg transition ${
+                            r.email_collecteur
+                              ? 'text-amber-600 hover:text-amber-800 hover:bg-amber-50 dark:hover:bg-amber-950/60'
+                              : 'text-gray-300 dark:text-slate-600 hover:text-gray-400'
+                          }`}
+                          title={
+                            r.email_collecteur
+                              ? `Envoyer ordre de recollecte par e-mail à ${r.collecteur} (${r.email_collecteur})`
+                              : `Le collecteur "${r.collecteur}" n'a pas d'adresse e-mail renseignée`
+                          }
+                        >
+                          <IconMail className="w-4 h-4" />
+                        </button>
+
+                        {/* Bouton Détail */}
                         <button
                           onClick={() => setReleveDetail(r)}
-                          className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition"
-                          title="Voir le détail du relevé"
+                          className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-slate-700 rounded-lg transition"
+                          title="Voir le détail complet du relevé"
                         >
                           <IconEye className="w-4 h-4" />
                         </button>
                       </td>
+
                     </tr>
                   );
                 })}
@@ -730,17 +806,60 @@ function Releves() {
               </div>
             </div>
 
-            <div className="flex justify-end pt-2">
-              <button
-                onClick={() => setReleveDetail(null)}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-semibold transition"
-              >
-                Fermer
-              </button>
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-3 border-t border-gray-100 dark:border-slate-700">
+              {/* Bouton pour envoyer l'ordre de recollecte depuis la modale */}
+              {releveDetail.id_collecteur && (
+                <button
+                  type="button"
+                  onClick={() => preparerEnvoiEmail(releveDetail)}
+                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition ${
+                    releveDetail.email_collecteur
+                      ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-xs'
+                      : 'bg-gray-100 dark:bg-slate-800 text-gray-400 dark:text-slate-500 cursor-not-allowed'
+                  }`}
+                  title={
+                    releveDetail.email_collecteur
+                      ? `Transmettre l'ordre de mission à ${releveDetail.collecteur}`
+                      : 'Adresse e-mail du collecteur non renseignée'
+                  }
+                >
+                  <IconMail className="w-4 h-4" />
+                  <span>
+                    {releveDetail.email_collecteur
+                      ? `Alerter le collecteur (${releveDetail.collecteur})`
+                      : 'Collecteur sans e-mail'}
+                  </span>
+                </button>
+              )}
+
+              <div className="flex gap-2 ml-auto">
+                <button
+                  onClick={() => setReleveDetail(null)}
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-200 rounded-lg text-xs font-semibold transition"
+                >
+                  Fermer
+                </button>
+              </div>
             </div>
           </div>
         )}
       </Modal>
+
+      {/* ─── Boîte de confirmation avant envoi d'ordre de recollecte par e-mail ─── */}
+      <ConfirmDialog
+        isOpen={dialogueEmail.ouvert}
+        onClose={() => setDialogueEmail({ ouvert: false, releve: null, enCours: false })}
+        onConfirm={confirmerEnvoiEmail}
+        title="Ordre de mission : Recollecte de compteur"
+        message={
+          dialogueEmail.releve
+            ? `Voulez-vous vraiment envoyer un ordre de recollecte par e-mail à "${dialogueEmail.releve.collecteur}" (${dialogueEmail.releve.email_collecteur}) pour l'installation ${dialogueEmail.releve.installation} ?\n\nIl lui sera demandé de se rendre sur place, de refaire la lecture et de se présenter au bureau JIRAMA.`
+            : ''
+        }
+        type="warning"
+        confirmText={dialogueEmail.enCours ? 'Transmission en cours...' : "Confirmer l'envoi"}
+        cancelText="Annuler"
+      />
     </PageLayout>
   );
 }

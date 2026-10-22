@@ -1,3 +1,7 @@
+/**
+ * Service API pour la gestion des utilisateurs et du journal d'audit JIRAMA.
+ */
+
 import api from './api';
 
 export const utilisateurService = {
@@ -21,8 +25,15 @@ export const utilisateurService = {
     return response.data;
   },
 
-  async regenererMotDePasse(id) {
-    const response = await api.post(`/utilisateurs/${id}/regenerer-mot-de-passe`);
+  async debloquer(id) {
+    const response = await api.post(`/utilisateurs/${id}/debloquer`);
+    return response.data;
+  },
+
+  async regenererMotDePasse(id, envoyerEmail = true) {
+    const response = await api.post(`/utilisateurs/${id}/regenerer-mot-de-passe`, null, {
+      params: { envoyer_email: envoyerEmail },
+    });
     return response.data;
   },
 
@@ -33,6 +44,11 @@ export const utilisateurService = {
 
   async supprimer(id) {
     const response = await api.delete(`/utilisateurs/${id}`);
+    return response.data;
+  },
+
+  async listerJournalAudit(params = {}) {
+    const response = await api.get('/utilisateurs/audit-journal', { params });
     return response.data;
   },
 };

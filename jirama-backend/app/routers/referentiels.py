@@ -29,10 +29,12 @@ def serialiser_collecteur(c):
     return {
         "id_collecteur": c.id_collecteur,
         "nom_collecteur": c.nom_collecteur,
+        "email": c.email,
         "carnets": carnets_data,
         "nb_carnets": len(carnets_data),
         "carnet_ids": [car["id_carnet"] for car in carnets_data],
     }
+
 
 
 def serialiser_observation(o):
@@ -141,16 +143,32 @@ def lister_carnets_disponibles(db: Session = Depends(get_db)):
 
 @router.post("/collecteurs", status_code=201)
 def creer_collecteur(data: dict, db: Session = Depends(get_db)):
-    """Crée un collecteur et lui affecte éventuellement des tournées/carnets."""
-    nouveau = Collecteur(nom_collecteur=data["nom_collecteur"])
+    """
+    Crée un collecteur avec nom et email éventuel, et lui affecte des tournées/carnets.
+    Si forcer_reaffectation est False, n'affecte que les carnets non occupés par un autre collecteur.
+    """
+    nom = data.get("nom_collecteur", "").strip()
+    if not nom:
+        raise HTTPException(400, "Le nom du collecteur est obligatoire.")
+
+    email = data.get("email", "").strip() if data.get("email") else None
+    forcer = data.get("forcer_reaffectation", True)
+
+    nouveau = Collecteur(nom_collecteur=nom, email=email)
     db.add(nouveau)
     db.flush()
 
     carnet_ids = data.get("carnet_ids", [])
     if carnet_ids:
-        db.query(Carnet).filter(Carnet.id_carnet.in_(carnet_ids)).update(
-            {"id_collecteur": nouveau.id_collecteur}, synchronize_session=False
-        )
+        if not forcer:
+            # Conserver uniquement les carnets non occupés
+            carnets_candidats = db.query(Carnet).filter(Carnet.id_carnet.in_(carnet_ids)).all()
+            carnet_ids = [c.id_carnet for c in carnets_candidats if c.id_collecteur is None]
+
+        if carnet_ids:
+            db.query(Carnet).filter(Carnet.id_carnet.in_(carnet_ids)).update(
+                {"id_collecteur": nouveau.id_collecteur}, synchronize_session=False
+            )
 
     db.commit()
     db.refresh(nouveau)
@@ -159,24 +177,43 @@ def creer_collecteur(data: dict, db: Session = Depends(get_db)):
 
 @router.put("/collecteurs/{id}")
 def modifier_collecteur(id: int, data: dict, db: Session = Depends(get_db)):
-    """Modifie le nom du collecteur et ses affectations de tournées/carnets."""
+    """
+    Modifie les informations d'un collecteur (nom, email) et ses affectations de tournées/carnets.
+    Prend en compte la résolution des conflits via forcer_reaffectation.
+    """
     c = db.query(Collecteur).filter_by(id_collecteur=id).first()
     if not c:
         raise HTTPException(404, "Collecteur introuvable")
-    c.nom_collecteur = data.get("nom_collecteur", c.nom_collecteur)
+
+    if "nom_collecteur" in data and data["nom_collecteur"].strip():
+        c.nom_collecteur = data["nom_collecteur"].strip()
+
+    if "email" in data:
+        c.email = data["email"].strip() if data["email"] else None
 
     if "carnet_ids" in data:
-        # Libérer les anciens carnets
+        carnet_ids = data["carnet_ids"]
+        forcer = data.get("forcer_reaffectation", True)
+
+        if not forcer:
+            # Récupérer les carnets ciblés
+            carnets_candidats = db.query(Carnet).filter(Carnet.id_carnet.in_(carnet_ids)).all()
+            # On ne garde que les carnets non occupés ou déjà rattachés à ce collecteur
+            carnet_ids = [car.id_carnet for car in carnets_candidats if car.id_collecteur in (None, id)]
+
+        # 1. Libérer tous les anciens carnets appartenant à ce collecteur
         db.query(Carnet).filter_by(id_collecteur=id).update({"id_collecteur": None}, synchronize_session=False)
-        # Assigner les nouveaux carnets
-        if data["carnet_ids"]:
-            db.query(Carnet).filter(Carnet.id_carnet.in_(data["carnet_ids"])).update(
+
+        # 2. Réassigner la sélection finale
+        if carnet_ids:
+            db.query(Carnet).filter(Carnet.id_carnet.in_(carnet_ids)).update(
                 {"id_collecteur": id}, synchronize_session=False
             )
 
     db.commit()
     db.refresh(c)
     return serialiser_collecteur(c)
+
 
 
 @router.delete("/collecteurs/{id}")

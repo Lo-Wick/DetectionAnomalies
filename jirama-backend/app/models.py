@@ -28,15 +28,20 @@ class Utilisateur(Base):
     
     id_utilisateur = Column(Integer, primary_key=True, index=True)
     login = Column(String(50), unique=True, nullable=False, index=True)
+    email = Column(String(120), nullable=True)  # Adresse e-mail pour réception du mot de passe
     mot_de_passe_hash = Column(String(255), nullable=False)
     nom_utilisateur = Column(String(100), nullable=False)
     role = Column(String(10), nullable=False, default="USER")
     token_qr = Column(String(255), unique=True, nullable=True)
     token_expire_le = Column(DateTime, nullable=True)
     actif = Column(Boolean, default=True)
+    # Gestion des tentatives échouées et verrouillage automatique pendant 3 jours
+    tentatives_echouees = Column(Integer, default=0, nullable=False)
+    bloque_jusqu_a = Column(DateTime, nullable=True)
     date_creation = Column(DateTime, server_default=func.now())
     
     imports = relationship("Import", back_populates="utilisateur")
+    activites = relationship("JournalActivite", back_populates="utilisateur")
     
     __table_args__ = (
         CheckConstraint("role IN ('ADMIN', 'USER')", name="check_role"),
@@ -172,6 +177,7 @@ class Collecteur(Base):
     
     id_collecteur = Column(Integer, primary_key=True, index=True)
     nom_collecteur = Column(String(100), nullable=False)
+    email = Column(String(120), nullable=True)  # Adresse e-mail pour ordres de mission et alertes
     
     # Carnets (tournées/carnets) attribués à ce collecteur
     carnets = relationship("Carnet", back_populates="collecteur")
@@ -298,3 +304,26 @@ class Releve(Base):
         UniqueConstraint("id_installation", "annee", "periode",
                          name="uq_installation_annee_periode"),
     )
+
+
+# ============================================================
+# 14. JOURNAL_ACTIVITE (Audit & Traçabilité des actions)
+# Enregistre l'ensemble des activités des utilisateurs :
+#   - Connexions réussies ou échouées
+#   - Déconnexions
+#   - Opérations CRUD (Création, Modification, Suppression)
+#   - Envois d'e-mails et déblocages de comptes
+# ============================================================
+class JournalActivite(Base):
+    __tablename__ = "journal_activite"
+
+    id_journal = Column(Integer, primary_key=True, index=True)
+    id_utilisateur = Column(Integer, ForeignKey("utilisateur.id_utilisateur", ondelete="SET NULL"), nullable=True)
+    login = Column(String(50), nullable=False, index=True)
+    action = Column(String(50), nullable=False)  # CONNEXION, DECONNEXION, CREATION, MODIFICATION, SUPPRESSION, etc.
+    entite = Column(String(50), nullable=False)  # AUTHENTIFICATION, UTILISATEUR, SITE, RELEVE, COLLECTEUR, etc.
+    details = Column(Text, nullable=False)        # Explication en français clair de l'action exécutée
+    adresse_ip = Column(String(50), nullable=True)
+    date_action = Column(DateTime, server_default=func.now(), index=True)
+
+    utilisateur = relationship("Utilisateur", back_populates="activites")

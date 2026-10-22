@@ -1,6 +1,7 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
 @keyframes slide-in {
   from {
     transform: translateX(100%);
@@ -14,4 +15,93 @@
 
 .animate-slide-in {
   animation: slide-in 0.3s ease-out;
+}
+
+/* ============================================================
+   ADAPTATION GLOBALE DU MODE SOMBRE (DARK MODE)
+   Permet une bascule instantanée et cohérente de toutes les
+   pages (cartes, tableaux, formulaires, en-têtes et modales)
+   ============================================================ */
+@layer base {
+  html.dark {
+    color-scheme: dark;
+  }
+
+  html.dark body {
+    background-color: #0b1120;
+    color: #f1f5f9;
+  }
+
+  /* Cartes et panneaux blancs */
+  html.dark .bg-white {
+    background-color: #1e293b !important;
+    color: #f8fafc;
+    border-color: #334155 !important;
+  }
+
+  /* Arrière-plans secondaires gris */
+  html.dark .bg-gray-50,
+  html.dark .bg-gray-50\/80,
+  html.dark .bg-gray-50\/70,
+  html.dark .bg-gray-50\/60,
+  html.dark .bg-gray-50\/50,
+  html.dark .bg-gray-50\/40,
+  html.dark .bg-gray-50\/30 {
+    background-color: #0f172a !important;
+    border-color: #334155 !important;
+  }
+
+  html.dark .bg-gray-100 {
+    background-color: #334155 !important;
+    color: #f8fafc;
+  }
+
+  /* Textes principaux et secondaires */
+  html.dark .text-gray-900,
+  html.dark .text-gray-800 {
+    color: #f8fafc !important;
+  }
+
+  html.dark .text-gray-700,
+  html.dark .text-gray-600 {
+    color: #cbd5e1 !important;
+  }
+
+  html.dark .text-gray-500,
+  html.dark .text-gray-400 {
+    color: #94a3b8 !important;
+  }
+
+  /* Bordures et séparateurs */
+  html.dark .border-gray-300,
+  html.dark .border-gray-200,
+  html.dark .border-gray-100 {
+    border-color: #334155 !important;
+  }
+
+  html.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
+  html.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+    border-color: #334155 !important;
+  }
+
+  /* Champs de formulaire (input, select, textarea) */
+  html.dark input:not([type="checkbox"]):not([type="radio"]),
+  html.dark select,
+  html.dark textarea {
+    background-color: #0f172a !important;
+    color: #f8fafc !important;
+    border-color: #475569 !important;
+  }
+
+  html.dark input::placeholder,
+  html.dark textarea::placeholder {
+    color: #64748b !important;
+  }
+
+  /* Survol des lignes de tableaux */
+  html.dark tr.hover\:bg-gray-50\/60:hover,
+  html.dark tr.hover\:bg-gray-50\/70:hover,
+  html.dark tr.hover\:bg-gray-50\/80:hover {
+    background-color: #273549 !important;
+  }
 }

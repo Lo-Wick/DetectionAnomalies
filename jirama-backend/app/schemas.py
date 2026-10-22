@@ -86,6 +86,7 @@ class CarnetResponse(BaseModel):
 class UtilisateurCreate(BaseModel):
     login: str
     nom_utilisateur: str
+    email: str | None = None
     role: str = "USER"
 
 
@@ -93,8 +94,11 @@ class UtilisateurResponse(BaseModel):
     id_utilisateur: int
     login: str
     nom_utilisateur: str
+    email: str | None = None
     role: str
     actif: bool
+    tentatives_echouees: int = 0
+    bloque_jusqu_a: datetime | None = None
     date_creation: datetime
     token_qr: str | None = None
     token_expire_le: datetime | None = None
@@ -107,7 +111,23 @@ class UtilisateurAvecMotDePasse(BaseModel):
     utilisateur: UtilisateurResponse
     mot_de_passe_clair: str
     qr_code_base64: str
+    email_envoye: bool = False
 
 
 class ChangerStatutRequest(BaseModel):
     actif: bool
+
+
+# ===== JOURNAL D'ACTIVITE (AUDIT) =====
+class JournalActiviteResponse(BaseModel):
+    id_journal: int
+    id_utilisateur: int | None = None
+    login: str
+    action: str
+    entite: str
+    details: str
+    adresse_ip: str | None = None
+    date_action: datetime
+
+    class Config:
+        from_attributes = True

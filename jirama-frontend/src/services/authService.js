@@ -22,4 +22,11 @@ export const authService = {
   isAuthenticated() {
     return !!localStorage.getItem('token');
   },
-};
+
+  updateStoredUser(nouveauProfil) {
+    const user = this.getCurrentUser() || {};
+    const updated = { ...user, ...nouveauProfil };
+    localStorage.setItem('user', JSON.stringify(updated));
+    return updated;
+  },
+};

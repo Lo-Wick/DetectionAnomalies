@@ -9,9 +9,10 @@ nécessaires au tableau de bord de l'application JIRAMA :
   - Imports récents
 """
 
-from fastapi import APIRouter, Depends
+from typing import Optional
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func
+from sqlalchemy import func, and_
 from collections import defaultdict
 
 from app.database import get_db
@@ -196,3 +197,79 @@ def statistiques_dashboard(db: Session = Depends(get_db)):
         "dernieres_anomalies": dernieres_anomalies,
         "derniers_imports": derniers_imports,
     }
+
+
+@router.get("/observations")
+def statistiques_observations(
+    annee: Optional[int] = Query(None, description="Filtrer par année"),
+    mois: Optional[int] = Query(None, ge=1, le=12, description="Filtrer par mois / période (1-12)"),
+    db: Session = Depends(get_db),
+):
+    """
+    Calcule la distribution des observations présentes dans les relevés de compteurs.
+
+    Permet un filtrage ciblé par année et/ou par mois (période 1-12),
+    ou la restitution de toutes les observations sans aucun filtre si non spécifié.
+
+    Returns:
+        dict: Statistiques d'observations avec pourcentages, totaux et options de filtrage disponibles.
+    """
+    # ─── Options disponibles pour alimenter dynamiquement les menus déroulants ───
+    annees_disponibles_raw = (
+        db.query(Releve.annee)
+        .filter(Releve.annee.isnot(None))
+        .distinct()
+        .order_by(Releve.annee.desc())
+        .all()
+    )
+    annees_disponibles = [int(a[0]) for a in annees_disponibles_raw]
+
+    # Mois disponibles (si une année est sélectionnée, on restreint aux mois de cette année)
+    mois_query = db.query(Releve.periode).filter(Releve.periode.isnot(None))
+    if annee:
+        mois_query = mois_query.filter(Releve.annee == annee)
+    mois_disponibles_raw = mois_query.distinct().order_by(Releve.periode.asc()).all()
+    mois_disponibles = [int(m[0]) for m in mois_disponibles_raw]
+
+    # ─── Construction de la requête pour les observations ─────────────────────────
+    conditions = [Releve.id_observation.isnot(None)]
+    if annee:
+        conditions.append(Releve.annee == annee)
+    if mois:
+        conditions.append(Releve.periode == mois)
+
+    lignes_obs = (
+        db.query(
+            Observation.code_observation,
+            Observation.description,
+            func.count(Releve.id_releve).label("total")
+        )
+        .join(Observation, Releve.id_observation == Observation.id_observation)
+        .filter(and_(*conditions))
+        .group_by(Observation.code_observation, Observation.description)
+        .order_by(func.count(Releve.id_releve).desc())
+        .all()
+    )
+
+    total_general = sum(l[2] for l in lignes_obs)
+
+    donnees = []
+    for code, description, count in lignes_obs:
+        pourcentage = round((count / total_general * 100), 2) if total_general > 0 else 0
+        donnees.append({
+            "code": code,
+            "description": description or f"Observation {code}",
+            "nom_affiche": f"{code} - {description}" if description else code,
+            "total": count,
+            "pourcentage": pourcentage,
+        })
+
+    return {
+        "annee_selectionnee": annee,
+        "mois_selectionne": mois,
+        "total_observations": total_general,
+        "annees_disponibles": annees_disponibles,
+        "mois_disponibles": mois_disponibles,
+        "donnees": donnees,
+    }
+
