@@ -405,16 +405,16 @@ function MonProfil() {
 
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 text-[11px] text-blue-200/90">
                   <span>Créé le : {formaterDate(profil?.date_creation)}</span>
-                  <span>•</span>
+                  {/* <span>•</span>
                   <span>
                     Dernière connexion : {formaterDate(profil?.derniere_connexion)}
                     {profil?.derniere_ip && ` (${profil.derniere_ip})`}
-                  </span>
+                  </span> */}
                 </div>
               </div>
 
               {/* Raccourci bascule Thème Clair / Sombre */}
-              <div className="flex-shrink-0">
+              {/* <div className="flex-shrink-0">
                 <button
                   onClick={toggleTheme}
                   type="button"
@@ -433,7 +433,7 @@ function MonProfil() {
                     </>
                   )}
                 </button>
-              </div>
+              </div>*/}
             </div>
           </div>
 
@@ -524,7 +524,12 @@ function MonProfil() {
             }`}
           >
             <IconHistory className="w-4 h-4" />
-            <span>Mon Historique ({profil?.stats?.nb_actions_journal || 0})</span>
+
+            {/*old menu*/}
+            {/* <span>Mon Historique ({profil?.stats?.nb_actions_journal || 0})</span> */}
+
+            {/*new menu*/}
+            <span>Mon Historique </span>
           </button>
         </div>
 

@@ -318,7 +318,7 @@ function Utilisateurs() {
           }`}
         >
           <IconHistory className="w-4 h-4" />
-          <span>Journal d'audit & Activités CRUD</span>
+          <span>Journal d'audit & Activités</span>
         </button>
       </div>
 
@@ -564,9 +564,9 @@ function Utilisateurs() {
                 <option value="BLOCAGE_COMPTE">Blocages de compte</option>
                 <option value="DEBLOCAGE">Déblocages</option>
                 <option value="DECONNEXION">Déconnexions</option>
-                <option value="CREATION">Créations CRUD</option>
-                <option value="MODIFICATION">Modifications CRUD</option>
-                <option value="SUPPRESSION">Suppressions CRUD</option>
+                <option value="CREATION">Créations </option>
+                <option value="MODIFICATION">Modifications </option>
+                <option value="SUPPRESSION">Suppressions </option>
                 <option value="ENVOI_EMAIL_COLLECTEUR">Alertes e-mail collecteurs</option>
               </select>
             </div>
