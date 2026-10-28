@@ -142,12 +142,12 @@ function Login() {
           </div>
         </form>
 
-        <div className="mt-6 pt-4 border-t border-gray-100 dark:border-slate-800 text-center">
+        {/* <div className="mt-6 pt-4 border-t border-gray-100 dark:border-slate-800 text-center">
           <p className="text-[11px] text-gray-400 dark:text-slate-500 flex items-center justify-center gap-1.5">
             <IconLock className="w-3.5 h-3.5 text-gray-400" />
             <span>Sécurité renforcée : verrouillage après 5 échecs pendant 3 jours</span>
           </p>
-        </div>
+        </div> */}
       </div>
     </div>
   );

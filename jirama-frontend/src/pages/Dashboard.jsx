@@ -259,7 +259,7 @@ function Dashboard() {
             </div>
 
             {/* ─── Graphique d'évolution mensuelle ────────────────────────────── */}
-            {donneesGraphique.length > 0 && (
+            {/* {donneesGraphique.length > 0 && (
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                 <div className="flex justify-between items-center mb-5">
                   <div>
@@ -287,7 +287,7 @@ function Dashboard() {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-            )}
+            )} */}
 
             {/* ─── Diagramme circulaire : Répartition des observations dans les relevés ─ */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">

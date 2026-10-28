@@ -283,7 +283,8 @@ function Releves() {
             }`}
           >
             <IconAlertTriangle className="w-3.5 h-3.5" />
-            <span>Anomalies uniquement</span>
+            {/* <span>Anomalies uniquement</span> */}
+            <span>Nouvel index inferieur</span>
             <span
               className={`px-2 py-0.5 rounded-full text-[10px] ${
                 filtres.statut === 'anomalies' ? 'bg-amber-600 text-white' : 'bg-amber-100 text-amber-800'
@@ -302,7 +303,8 @@ function Releves() {
             }`}
           >
             <IconAlertCircle className="w-3.5 h-3.5" />
-            <span>Erreurs de saisie</span>
+            {/* <span>Erreurs de saisie</span> */}
+            <span>Sans nouvel index</span>
             <span
               className={`px-2 py-0.5 rounded-full text-[10px] ${
                 filtres.statut === 'erreurs' ? 'bg-rose-700 text-white' : 'bg-rose-100 text-rose-800'
@@ -314,14 +316,14 @@ function Releves() {
         </div>
 
         {/* Bouton d'export CSV */}
-        <button
+        {/* <button
           onClick={exporterCSV}
           disabled={exportEnCours || total === 0}
           className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition text-xs font-semibold shadow-sm"
         >
           <IconDownload className="w-4 h-4" />
           <span>{exportEnCours ? 'Génération...' : 'Exporter CSV'}</span>
-        </button>
+        </button> */}
       </div>
 
       {/* ─── Bloc des filtres multicritères ─────────────────────────────────────── */}
